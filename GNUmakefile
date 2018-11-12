@@ -31,6 +31,9 @@ fmt:
 fmtcheck:
 	@sh -c "'$(CURDIR)/scripts/gofmtcheck.sh'"
 
+codegen:
+	go run $(CURDIR)/codegen/main.go
+
 errcheck:
 	@sh -c "'$(CURDIR)/scripts/errcheck.sh'"
 
