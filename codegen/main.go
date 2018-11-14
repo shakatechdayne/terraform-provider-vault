@@ -73,7 +73,7 @@ func main() {
 	logger.Info("Finished generating openapi.json")
 
 	logger.Info("Generating code")
-	if err := generate.Run(doc); err != nil {
+	if err := generate.Run(logger, doc); err != nil {
 		logger.Error(err.Error())
 		return
 	}
