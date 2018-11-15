@@ -61,7 +61,7 @@ Usage: vault operator init [options]
   key shares must come together to regenerate the master key. These keys are
   often called "unseal keys" in Vault's documentation.
 
-  This command cannot be run against already-initialized Vault cluster.
+  This command cannot be run against an already-initialized Vault cluster.
 
   Start initialization with the default options:
 
@@ -246,14 +246,14 @@ func (c *OperatorInitCommand) Run(args []string) int {
 	if c.flagAuto {
 		if Format(c.UI) == "table" {
 			c.UI.Warn(wrapAtLength("WARNING! -auto is deprecated. Please use " +
-				"-consul-auto instead. This will be removed in Vault 0.12."))
+				"-consul-auto instead. This will be removed in Vault 1.1."))
 		}
 		c.flagConsulAuto = true
 	}
 	if c.flagCheck {
 		if Format(c.UI) == "table" {
 			c.UI.Warn(wrapAtLength("WARNING! -check is deprecated. Please use " +
-				"-status instead. This will be removed in Vault 0.12."))
+				"-status instead. This will be removed in Vault 1.1."))
 		}
 		c.flagStatus = true
 	}
