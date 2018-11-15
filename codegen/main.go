@@ -14,6 +14,8 @@ import (
 	"github.com/terraform-providers/terraform-provider-vault/codegen/github"
 )
 
+// TODO run via make
+// TODO provide way to switch between this or deprecated code
 // Main assumes it's being run from this project's home directory.
 func main() {
 	logger := hclog.Default()

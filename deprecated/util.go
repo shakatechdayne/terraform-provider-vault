@@ -6,6 +6,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -89,4 +90,33 @@ func isExpiredTokenErr(err error) bool {
 		return true
 	}
 	return false
+}
+
+func leaseExpiringSoon(d *schema.ResourceData) bool {
+	startedStr := d.Get("lease_started").(string)
+	duration := d.Get("lease_duration").(int)
+	if startedStr == "" {
+		return false
+	}
+	started, err := time.Parse(time.RFC3339, startedStr)
+	if err != nil {
+		log.Printf("[DEBUG] lease_started %q for %q is an invalid value, removing: %s", startedStr, d.Id(), err)
+		d.Set("lease_started", "")
+		return false
+	}
+	// whether the time the lease started plus the number of seconds specified in the duration
+	// plus five minutes of buffer is before the current time or not. If it is, we don't need to
+	// renew just yet.
+	if started.Add(time.Second * time.Duration(duration)).Add(time.Minute * 5).Before(time.Now()) {
+		return false
+	}
+	// if the lease duration expired more than five minutes ago, we can't renew anyways, so don't
+	// bother even trying.
+	if started.Add(time.Second * time.Duration(duration)).After(time.Now().Add(time.Minute * -5)) {
+		return false
+	}
+
+	// the lease will expire in the next five minutes, or expired less than five minutes ago, in
+	// which case renewing is worth a shot
+	return true
 }

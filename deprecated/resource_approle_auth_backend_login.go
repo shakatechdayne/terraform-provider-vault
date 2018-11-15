@@ -132,7 +132,7 @@ func approleAuthBackendLoginRead(d *schema.ResourceData, meta interface{}) error
 		return nil
 	}
 	log.Printf("[DEBUG] Read token %q", d.Id())
-	if leaseExpiringSoon(d, client) {
+	if leaseExpiringSoon(d) {
 		log.Printf("[DEBUG] Lease for %q expiring soon, renewing", d.Id())
 		renewed, err := client.Auth().Token().Renew(d.Get("client_token").(string), d.Get("lease_duration").(int))
 		if err != nil {
@@ -185,33 +185,4 @@ func approleAuthBackendLoginExists(d *schema.ResourceData, meta interface{}) (bo
 
 func approleAuthBackendLoginPath(backend string) string {
 	return "auth/" + strings.Trim(backend, "/") + "/login"
-}
-
-func leaseExpiringSoon(d *schema.ResourceData, client *api.Client) bool {
-	startedStr := d.Get("lease_started").(string)
-	duration := d.Get("lease_duration").(int)
-	if startedStr == "" {
-		return false
-	}
-	started, err := time.Parse(time.RFC3339, startedStr)
-	if err != nil {
-		log.Printf("[DEBUG] lease_started %q for %q is an invalid value, removing: %s", startedStr, d.Id(), err)
-		d.Set("lease_started", "")
-		return false
-	}
-	// whether the time the lease started plus the number of seconds specified in the duration
-	// plus five minutes of buffer is before the current time or not. If it is, we don't need to
-	// renew just yet.
-	if started.Add(time.Second * time.Duration(duration)).Add(time.Minute * 5).Before(time.Now()) {
-		return false
-	}
-	// if the lease duration expired more than five minutes ago, we can't renew anyways, so don't
-	// bother even trying.
-	if started.Add(time.Second * time.Duration(duration)).After(time.Now().Add(time.Minute * -5)) {
-		return false
-	}
-
-	// the lease will expire in the next five minutes, or expired less than five minutes ago, in
-	// which case renewing is worth a shot
-	return true
 }
