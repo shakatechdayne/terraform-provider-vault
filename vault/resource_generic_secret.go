@@ -46,7 +46,12 @@ func genericSecretResource() *schema.Resource {
 				ValidateFunc: ValidateDataJSON,
 				Sensitive:    true,
 			},
-
+                        "data": &schema.Schema{
+				Type:        schema.TypeMap,
+				Required:    false,
+				Description: "Data returned from the resource.  Should be a map containing the content from data_json.",
+				Computed:    true,
+			},
 			"allow_read": {
 				Type:        schema.TypeBool,
 				Optional:    true,
@@ -59,6 +64,12 @@ func genericSecretResource() *schema.Resource {
 				Optional:    true,
 				Default:     false,
 				Description: "Don't attempt to read the token from Vault if true; drift won't be detected.",
+			},
+			"capture_response": &schema.Schema{
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "If set to true, will disable read and capture the response to the write in the data object.",
 			},
 		},
 	}
@@ -121,12 +132,46 @@ func genericSecretResourceWrite(d *schema.ResourceData, meta interface{}) error 
 	}
 
 	log.Printf("[DEBUG] Writing generic Vault secret to %s", path)
-	_, err = client.Logical().Write(path, data)
+	secret, err := client.Logical().Write(path, data)
 	if err != nil {
 		return fmt.Errorf("error writing to Vault: %s", err)
 	}
 
 	d.SetId(originalPath)
+	captureResponse := d.Get("capture_response").(bool)
+	if captureResponse {
+		log.Printf("[DEBUG] Capture response is set.")
+		if secret == nil {
+			log.Printf("[WARN] write to (%s) returned empty response", path)
+			return nil
+		}
+		jsonDataBytes, err := json.Marshal(secret.Data)
+		if err != nil {
+			return fmt.Errorf("Error marshaling JSON for %q: %s", path, err)
+		}
+		d.Set("data_json", string(jsonDataBytes))
+
+		// Since our "data" map can only contain string values, we
+		// will take strings from Data and write them in as-is,
+		// and write everything else in as a JSON serialization of
+		// whatever value we get so that complex types can be
+		// passed around and processed elsewhere if desired.
+		dataMap := map[string]string{}
+		for k, v := range secret.Data {
+			if vs, ok := v.(string); ok {
+				dataMap[k] = vs
+				continue
+			}
+			// Again ignoring error because we know this value
+			// came from JSON in the first place and so must be valid.
+			vBytes, _ := json.Marshal(v)
+			dataMap[k] = string(vBytes)
+		}
+		d.Set("data", dataMap)
+
+		d.Set("path", path)
+		return nil
+	}
 
 	return genericSecretResourceRead(d, meta)
 }
